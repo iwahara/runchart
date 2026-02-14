@@ -1,0 +1,13 @@
+﻿%% runchart sample: loop detection example
+%% 実行例: runchart run sample/loop.mmd
+%% 期待結果: ループを検出して検証エラー（終了コード 2 または 1）で終了します。
+
+flowchart TD
+  start[echo start]
+  A[echo A]
+  B[echo B]
+
+  start --> A
+  A --> B
+  %% ここで A と B の間にループを作る
+  B --> A

@@ -77,12 +77,14 @@ runchart run sample/simple.mmd
 
 - `sample/simple.mmd` — 単純なフローで失敗分岐を 1 回だけ辿る最小例。
 - `sample/branching.mmd` — 成功経路と失敗経路の分岐を含む例（統合テストで失敗し、リカバリして完了）。
+- `sample/loop.mmd` — ループ検出のエラーを示す例（検証で循環を検出してエラー終了）。
 
 実行例:
 
 ```sh
 runchart run sample/simple.mmd
 runchart run sample/branching.mmd
+RUNCHART_STRICT=1 runchart run sample/loop.mmd  # 循環検出のエラー例（環境により終了コードは 1/2）
 ```
 
 `branching.mmd` の出力例（環境により秒数は異なります）:
