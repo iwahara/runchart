@@ -1,0 +1,9 @@
+﻿%% runchart sample: simple flow with fail-branch
+%% 実行例: runchart run sample/simple.mmd
+flowchart TD
+    build[echo building]
+    test[exit 1]
+    notify[echo notify fail]
+
+    build --> test
+    test -- fail --> notify
