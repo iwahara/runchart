@@ -73,21 +73,28 @@ runchart run sample/simple.mmd
 
 ## サンプル
 
-`sample/simple.mmd`
+付属のサンプル:
 
-```
-flowchart LR
-  A[echo start]
-  B[echo ok]
-  C[sh -c 'exit 1']
-  D[echo recovered]
+- `sample/simple.mmd` — 単純なフローで失敗分岐を 1 回だけ辿る最小例。
+- `sample/branching.mmd` — 成功経路と失敗経路の分岐を含む例（統合テストで失敗し、リカバリして完了）。
 
-  A --> B
-  B --> C
-  C -- fail --> D
+実行例:
+
+```sh
+runchart run sample/simple.mmd
+runchart run sample/branching.mmd
 ```
 
-上記を実行すると、`A` と `B` は成功、`C` は失敗し、`D` に分岐します。
+`branching.mmd` の出力例（環境により秒数は異なります）:
+
+```
+✔ build (0.0s)
+✔ unit (0.0s)
+✖ integ (exit 1)
+→ branching to recover
+✔ recover (0.0s)
+✔ done (0.0s)
+```
 
 ## 終了コードとエラー
 

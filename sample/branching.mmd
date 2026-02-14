@@ -1,0 +1,15 @@
+﻿%% runchart sample: branching with success and fail paths
+%% 実行例: runchart run sample/branching.mmd
+flowchart TD
+    build[echo building]
+    unit[echo unit tests ok]
+    integ[exit 0]
+    recover[echo recover from integration failure]
+    done[echo done]
+
+    build --> unit
+    unit --> integ
+    %% 成功時の分岐（exit 0 の場合はこちらへ進む想定）
+    integ --> done
+    integ -- fail --> recover
+    recover --> done
