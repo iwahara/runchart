@@ -1,0 +1,60 @@
+﻿name: Release binaries
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    name: Build and upload release assets
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, windows, darwin]
+        goarch: [amd64, arm64]
+    env:
+      CGO_ENABLED: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+
+      - name: Prepare variables
+        id: vars
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          NAME="runchart"
+          EXT=""
+          if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
+          FILENAME="${NAME}_${TAG}_${{ matrix.goos }}_${{ matrix.goarch }}${EXT}"
+          OUTDIR="dist"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "name=${NAME}" >> "$GITHUB_OUTPUT"
+          echo "ext=${EXT}" >> "$GITHUB_OUTPUT"
+          echo "filename=${FILENAME}" >> "$GITHUB_OUTPUT"
+          echo "outdir=${OUTDIR}" >> "$GITHUB_OUTPUT"
+
+      - name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p "${{ steps.vars.outputs.outdir }}"
+          go mod download
+          go build -trimpath -ldflags "-s -w" -o "${{ steps.vars.outputs.outdir }}/${{ steps.vars.outputs.filename }}" ./cmd/runchart
+
+      - name: Upload asset to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ steps.vars.outputs.outdir }}/${{ steps.vars.outputs.filename }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
