@@ -36,6 +36,10 @@ func Parse(path string) (*Result, error) {
 	for s.Scan() {
 		line++
 		raw := s.Text()
+		// Strip UTF-8 BOM if present at the very beginning of the file (common on Windows editors)
+		if line == 1 {
+			raw = strings.TrimPrefix(raw, "\uFEFF")
+		}
 		trimmed := strings.TrimSpace(raw)
 		if trimmed == "" {
 			continue
