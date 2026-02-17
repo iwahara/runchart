@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"os/signal"
 	"time"
 
 	"runchart/internal/executor"
@@ -13,7 +15,7 @@ import (
 
 // Run parses, validates, and executes the given Mermaid file.
 // Returns a process exit code.
-func Run(path string, out io.Writer, errOut io.Writer) int {
+func Run(path string, out io.Writer, errOut io.Writer, maxSteps int) int {
 	res, err := parser.Parse(path)
 	if err != nil {
 		fmt.Fprintf(errOut, "%v\n", err)
@@ -25,7 +27,13 @@ func Run(path string, out io.Writer, errOut io.Writer) int {
 	}
 
 	ex := executor.New(res.Graph, nil, out)
-	ctx, cancel := context.WithTimeout(context.Background(), 24*time.Hour)
+	if maxSteps > 0 {
+		ex.MaxSteps = maxSteps
+	}
+	// Cancel on timeout or SIGINT
+	baseCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	ctx, cancel := context.WithTimeout(baseCtx, 24*time.Hour)
 	defer cancel()
 	code, runErr := ex.Execute(ctx)
 	if runErr != nil {

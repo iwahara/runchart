@@ -61,3 +61,29 @@ bad line here
 		t.Fatalf("expected error")
 	}
 }
+
+func TestParseLabeledEdgesV02(t *testing.T) {
+	path := writeTemp(t, `flowchart TD
+A[cmd]
+B[cmd]
+C[cmd]
+D[cmd]
+A -- 1 --> B
+A -- default --> C
+A -- fail --> D
+`)
+	res, err := Parse(path)
+	if err != nil {
+		t.Fatalf("parse err: %v", err)
+	}
+	// exact code edge
+	if m := res.Graph.NextByCode["A"]; m == nil || m[1] != "B" {
+		t.Fatalf("missing code=1 edge A->B")
+	}
+	if res.Graph.NextDefault["A"] != "C" {
+		t.Fatalf("missing default edge A->C")
+	}
+	if res.Graph.NextFail["A"] != "D" {
+		t.Fatalf("missing fail edge A->D")
+	}
+}

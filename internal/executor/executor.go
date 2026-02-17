@@ -38,13 +38,15 @@ type Executor struct {
 	G      *graph.Graph
 	Runner Runner
 	Out    io.Writer
+	// MaxSteps limits the number of transitions to prevent infinite loops (v0.2)
+	MaxSteps int
 }
 
 func New(g *graph.Graph, r Runner, out io.Writer) *Executor {
 	if r == nil {
 		r = SystemRunner{}
 	}
-	return &Executor{G: g, Runner: r, Out: out}
+	return &Executor{G: g, Runner: r, Out: out, MaxSteps: 1000}
 }
 
 // Execute runs from start node until no next node. Returns final exit code and error when control-flow error occurs.
@@ -55,6 +57,10 @@ func (e *Executor) Execute(ctx context.Context) (int, error) {
 	}
 	curr := start
 	lastExit := 0
+	if e.MaxSteps <= 0 {
+		e.MaxSteps = 1000
+	}
+	steps := 0
 	visited := map[string]bool{}
 	for curr != "" {
 		n := e.G.Nodes[curr]
@@ -67,20 +73,47 @@ func (e *Executor) Execute(ctx context.Context) (int, error) {
 		lastExit = code
 		if code == 0 {
 			fmt.Fprintf(e.Out, "✔ %s (%.1fs)\n", n.ID, dur.Seconds())
-			next := e.G.NextSuccess[n.ID]
-			curr = next
 		} else {
 			fmt.Fprintf(e.Out, "✖ %s (exit %d)\n", n.ID, code)
-			next, ok := e.G.NextFail[n.ID]
-			if !ok {
-				return code, fmt.Errorf("no fail branch defined for node '%s' (exit %d)", n.ID, code)
-			}
-			fmt.Fprintf(e.Out, "→ branching to %s\n", next)
-			curr = next
 		}
-		// stop if we see self-loop or unexpected revisit (safety, though validator should prevent cycles)
-		if visited[curr] {
-			return lastExit, fmt.Errorf("cycle detected at runtime involving '%s'", curr)
+
+		// decide next node based on v0.2 priority
+		var next string
+		if m, ok := e.G.NextByCode[n.ID]; ok {
+			if v, ok2 := m[code]; ok2 {
+				next = v
+			}
+		}
+		if next == "" {
+			if code == 0 {
+				if v, ok := e.G.NextSuccess[n.ID]; ok {
+					next = v
+				}
+			} else {
+				if v, ok := e.G.NextFail[n.ID]; ok {
+					next = v
+				}
+			}
+		}
+		if next == "" {
+			if v, ok := e.G.NextDefault[n.ID]; ok {
+				next = v
+			}
+		}
+
+		if next == "" { // end of flow
+			break
+		}
+		if code != 0 { // keep legacy branching message for non-zero
+			fmt.Fprintf(e.Out, "→ branching to %s\n", next)
+		}
+		if visited[next] {
+			fmt.Fprintf(e.Out, "↺ loop to %s\n", next)
+		}
+		curr = next
+		steps++
+		if steps >= e.MaxSteps {
+			return lastExit, fmt.Errorf("execution aborted: max steps (%d) exceeded", e.MaxSteps)
 		}
 		visited[curr] = true
 		if runErr != nil { // non-exit error

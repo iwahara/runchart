@@ -11,16 +11,25 @@ type Node struct {
 type Edge struct {
 	From string
 	To   string
+	// Legacy v0.1 flag: fail-branch. When true and no other label fields are set,
+	// this represents a generic non-zero exit branch.
 	Fail bool
-	Line int
+	// v0.2 labels
+	// If Code is not nil, this edge is chosen when exit code matches exactly.
+	Code *int
+	// Default edge taken when no other rule matches.
+	Default bool
+	Line    int
 }
 
 type Graph struct {
 	Nodes map[string]*Node
 	Edges []Edge
 	// adjacency by success/fail
-	NextSuccess map[string]string
-	NextFail    map[string]string
+	NextSuccess map[string]string         // success (exit 0) edge
+	NextFail    map[string]string         // generic fail (non-zero) edge
+	NextDefault map[string]string         // default edge when nothing else matches
+	NextByCode  map[string]map[int]string // exact exit code match edges
 	InDegree    map[string]int
 }
 
@@ -30,6 +39,8 @@ func New() *Graph {
 		Edges:       []Edge{},
 		NextSuccess: map[string]string{},
 		NextFail:    map[string]string{},
+		NextDefault: map[string]string{},
+		NextByCode:  map[string]map[int]string{},
 		InDegree:    map[string]int{},
 	}
 }
@@ -46,17 +57,35 @@ func (g *Graph) AddNode(n Node) error {
 }
 
 func (g *Graph) AddEdge(e Edge) error {
-	if e.Fail {
+	// Decide edge bucket by label fields (priority: Code, Success/Fail(Default false & Fail flag), Default)
+	switch {
+	case e.Code != nil:
+		m, ok := g.NextByCode[e.From]
+		if !ok {
+			m = map[int]string{}
+			g.NextByCode[e.From] = m
+		}
+		if _, exists := m[*e.Code]; exists {
+			return fmt.Errorf("duplicate exit-code edge from %s for code %d (line %d)", e.From, *e.Code, e.Line)
+		}
+		m[*e.Code] = e.To
+	case e.Default:
+		if _, exists := g.NextDefault[e.From]; exists {
+			return fmt.Errorf("duplicate default edge from %s (line %d)", e.From, e.Line)
+		}
+		g.NextDefault[e.From] = e.To
+	case e.Fail:
 		if _, exists := g.NextFail[e.From]; exists {
 			return fmt.Errorf("duplicate fail edge from %s (line %d)", e.From, e.Line)
 		}
 		g.NextFail[e.From] = e.To
-	} else {
+	default:
 		if _, exists := g.NextSuccess[e.From]; exists {
 			return fmt.Errorf("duplicate success edge from %s (line %d)", e.From, e.Line)
 		}
 		g.NextSuccess[e.From] = e.To
 	}
+
 	g.Edges = append(g.Edges, e)
 	g.InDegree[e.To]++
 	if _, ok := g.InDegree[e.From]; !ok {

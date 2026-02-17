@@ -22,35 +22,37 @@ func Validate(g *graph.Graph) error {
 		return err
 	}
 
-	// cycle detection (DFS colors)
-	color := map[string]int{} // 0=white,1=gray,2=black
-	var visit func(string) error
-	visit = func(u string) error {
-		if color[u] == 1 {
-			return fmt.Errorf("cycle detected involving node '%s'", u)
+	// v0.2: cycles are allowed. Instead, detect unreachable nodes from the start node.
+	start, err := g.StartNode()
+	if err != nil {
+		return err
+	}
+	seen := map[string]bool{}
+	var dfs func(string)
+	dfs = func(u string) {
+		if seen[u] {
+			return
 		}
-		if color[u] == 2 {
-			return nil
-		}
-		color[u] = 1
+		seen[u] = true
 		if v, ok := g.NextSuccess[u]; ok {
-			if err := visit(v); err != nil {
-				return err
-			}
+			dfs(v)
 		}
 		if v, ok := g.NextFail[u]; ok {
-			if err := visit(v); err != nil {
-				return err
+			dfs(v)
+		}
+		if v, ok := g.NextDefault[u]; ok {
+			dfs(v)
+		}
+		if m, ok := g.NextByCode[u]; ok {
+			for _, v := range m {
+				dfs(v)
 			}
 		}
-		color[u] = 2
-		return nil
 	}
+	dfs(start)
 	for id := range g.Nodes {
-		if color[id] == 0 {
-			if err := visit(id); err != nil {
-				return err
-			}
+		if !seen[id] {
+			return fmt.Errorf("unreachable node '%s' from start '%s'", id, start)
 		}
 	}
 	return nil

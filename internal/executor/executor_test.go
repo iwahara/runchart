@@ -68,8 +68,8 @@ func TestExecuteFailNoBranch(t *testing.T) {
 	var out bytes.Buffer
 	ex := New(g, &mockRunner{seq: []int{2}}, &out)
 	code, err := ex.Execute(context.Background())
-	if err == nil {
-		t.Fatalf("expected error")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if code != 2 {
 		t.Fatalf("want 2 got %d", code)

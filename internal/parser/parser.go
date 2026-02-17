@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"runchart/internal/graph"
@@ -13,8 +14,10 @@ import (
 var (
 	reFlowchart = regexp.MustCompile(`^\s*flowchart\b`)
 	reNode      = regexp.MustCompile(`^\s*([A-Za-z0-9_\-]+)\s*\[(.+)\]\s*$`)
-	reEdgeSucc  = regexp.MustCompile(`^\s*([A-Za-z0-9_\-]+)\s*--?>\s*([A-Za-z0-9_\-]+)\s*$`)
-	reEdgeFail  = regexp.MustCompile(`^\s*([A-Za-z0-9_\-]+)\s*--\s*fail\s*-->\s*([A-Za-z0-9_\-]+)\s*$`)
+	// Unlabeled success edge (legacy & default success)
+	reEdgeSucc = regexp.MustCompile(`^\s*([A-Za-z0-9_\-]+)\s*--?>\s*([A-Za-z0-9_\-]+)\s*$`)
+	// Explicit labeled edges: -- <label> --> where label can be 'fail', 'default', or integer
+	reEdgeLabeled = regexp.MustCompile(`^\s*([A-Za-z0-9_\-]+)\s*--\s*([A-Za-z0-9_\-]+)\s*-->\s*([A-Za-z0-9_\-]+)\s*$`)
 )
 
 type Result struct {
@@ -66,10 +69,29 @@ func Parse(path string) (*Result, error) {
 			continue
 		}
 
-		if m := reEdgeFail.FindStringSubmatch(trimmed); m != nil {
-			from, to := m[1], m[2]
-			if err := g.AddEdge(graph.Edge{From: from, To: to, Fail: true, Line: line}); err != nil {
-				return nil, err
+		// labeled edge first (to not conflict with plain -->)
+		if m := reEdgeLabeled.FindStringSubmatch(trimmed); m != nil {
+			from, label, to := m[1], strings.ToLower(m[2]), m[3]
+			// special case: allow '-'/ '->' variations are covered by regex; label processed here
+			switch label {
+			case "fail":
+				if err := g.AddEdge(graph.Edge{From: from, To: to, Fail: true, Line: line}); err != nil {
+					return nil, err
+				}
+			case "default":
+				if err := g.AddEdge(graph.Edge{From: from, To: to, Default: true, Line: line}); err != nil {
+					return nil, err
+				}
+			default:
+				// try parse integer
+				if code, perr := strconv.Atoi(label); perr == nil {
+					c := code
+					if err := g.AddEdge(graph.Edge{From: from, To: to, Code: &c, Line: line}); err != nil {
+						return nil, err
+					}
+				} else {
+					return nil, fmt.Errorf("syntax error at line %d: unsupported edge label '%s'", line, label)
+				}
 			}
 			continue
 		}
