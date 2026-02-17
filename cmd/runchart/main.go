@@ -28,6 +28,17 @@ func main() {
 		path := args[0]
 		code := cli.Run(path, os.Stdout, os.Stderr, *maxSteps)
 		os.Exit(code)
+	case "validate":
+		fs := flag.NewFlagSet("validate", flag.ExitOnError)
+		_ = fs.Parse(os.Args[2:])
+		args := fs.Args()
+		if len(args) != 1 {
+			fmt.Fprintln(os.Stderr, "usage: runchart validate <flow.mmd>")
+			os.Exit(2)
+		}
+		path := args[0]
+		code := cli.Validate(path, os.Stdout, os.Stderr)
+		os.Exit(code)
 	case "-h", "--help", "help":
 		usage()
 	default:
@@ -42,4 +53,5 @@ func usage() {
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("  run [--max-steps N] <flow.mmd>   Execute the flowchart")
+	fmt.Println("  validate <flow.mmd>              Parse and validate the flowchart (no execution)")
 }

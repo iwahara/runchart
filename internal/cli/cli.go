@@ -46,3 +46,21 @@ func Run(path string, out io.Writer, errOut io.Writer, maxSteps int) int {
 	}
 	return code
 }
+
+// Validate parses and statically validates the given Mermaid file without executing it.
+// Returns 0 when valid, or 2 when a parse/validate error occurs.
+func Validate(path string, out io.Writer, errOut io.Writer) int {
+	res, err := parser.Parse(path)
+	if err != nil {
+		fmt.Fprintf(errOut, "%v\n", err)
+		return 2
+	}
+	if err := validator.Validate(res.Graph); err != nil {
+		fmt.Fprintf(errOut, "%v\n", err)
+		return 2
+	}
+	if out != nil {
+		fmt.Fprintln(out, "valid")
+	}
+	return 0
+}

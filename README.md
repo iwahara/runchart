@@ -29,6 +29,7 @@ Go 1.21+ がインストールされていれば、以下のいずれかで導�
 
 ```sh
 runchart run <flow.mmd>
+runchart validate <flow.mmd>
 ```
 
 例（付属サンプル）:
@@ -84,7 +85,7 @@ runchart run sample/simple.mmd
 ```sh
 runchart run sample/simple.mmd
 runchart run sample/branching.mmd
-RUNCHART_STRICT=1 runchart run sample/loop.mmd  # 循環検出のエラー例（環境により終了コードは 1/2）
+runchart validate sample/simple.mmd
 ```
 
 `branching.mmd` の出力例（環境により秒数は異なります）:
